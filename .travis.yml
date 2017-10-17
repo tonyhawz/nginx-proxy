@@ -1,21 +1,17 @@
-dist: trusty
 sudo: required
-
-env:
-  matrix:
-  - TEST_TARGET: test-debian
-  - TEST_TARGET: test-alpine
-
-before_install:
-  - sudo apt-get remove docker docker-engine
-  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-  - sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-  - sudo apt-get update
-  - sudo apt-get -y install docker-ce
-  - docker version
-  - docker info
-  # prepare docker test requirements
-  - make update-dependencies
-
+services:
+- docker
+language: bash
 script:
-  - make $TEST_TARGET
+# prepare qemu
+- docker run --rm --privileged multiarch/qemu-user-static:register --reset
+# build image
+- docker build -t tonyhawz/rpi-nginx-proxy .
+# test image
+- docker run tonyhawz/rpi-nginx-proxy nginx -v
+# push image
+- >
+  if [ "$TRAVIS_BRANCH" == "master" ] && [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
+    docker login -u="$DOCKER_USER" -p="$DOCKER_PASS"
+    docker push tonyhawz/rpi-nginx-proxy
+  fi
